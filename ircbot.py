@@ -10,16 +10,16 @@ class IRCBot(IRCClient):
 
     def signedOn(self):
         self.join(self.factory.channel)
-        print '%s signed on as %s' % (self.nickname, self.factory.channel)
+        print('{} signed on as {}'.format(self.nickname, self.factory.channel))
     
     def joined(self, channel):
-        print '%s joined channel %s.' % (self.nickname, self.factory.channel)
+        print('{} joined channel {}.'.format(self.nickname, self.factory.channel))
     
     def privmsg(self, user, channel, msg):
-        print '[Message from %s in %s]: %s' % (user, channel, msg)
+        print('[Message from {} in {}]: {}'.format(user, channel, msg))
     
     def left(self, channel):
-        print 'Left channel %s.' % channel
+        print('Left channel {}.'.format(channel))
     
 class IRCBotFactory(ClientFactory):
     def __init__(self, channel, nickname='MyTestBot'):
@@ -29,16 +29,16 @@ class IRCBotFactory(ClientFactory):
     protocol = IRCBot
     
     def clientConnectionFailed(self, connector, reason):
-        print 'IRC Client: Client connection failed because: %s' % reason
+        print('IRC Client: Client connection failed because: {}'.format(reason))
         connector.connect()
     
     def clientConnectionLost(self, connector, reason):
-        print 'IRC Client: Client connection lost because: %s' % reason
+        print('IRC Client: Client connection lost because: {}'.format(reason))
 
 def parse_args():
     usage_text = """usage: %prog [IRC channels to join]
     IRC bot that joins several channels and uses an event loop to 
-        detect and print incoming messages.
+        detect and print(incoming messages.
     
     Todo: be more true to the claim that the event loop is async 
         with respect to input and output by deferring prints.
@@ -60,13 +60,13 @@ def parse_args():
     
 class Monitor:
     """
-    Class instances print incoming IRC messages to the console.
+    Class instances print(incoming IRC messages to the console.
     Incoming messages are printed by the event loop.
     """
     def __init__(self, channels, hostname):
         from twisted.internet import reactor
         for channel in channels:
-            print 'Twisted: Reactor listening on channel %s' % channel
+            print('Twisted: Reactor listening on channel {}'.format(channel))
             reactor.connectTCP(hostname, 6667, IRCBotFactory(channel))
         reactor.run()
 
