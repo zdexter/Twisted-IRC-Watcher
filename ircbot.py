@@ -1,10 +1,14 @@
 import optparse
-from twisted.internet.protocol import Protocol
-from twisted.internet.protocol import ClientFactory
+from twisted.internet import protocol
 from twisted.words.protocols.irc import IRCClient
 from twisted.internet.defer import Deferred
 
 class IRCBot(IRCClient):
+    """
+    An instance of this class will connect to a single IRC channel
+        and propagate output (watchword alerts, etc) up to the reactor
+        via its IRCBotFactory instance.
+    """
     def _get_nickname(self):
         return self.factory.nickname
     nickname = property(_get_nickname)
@@ -33,7 +37,7 @@ class IRCBot(IRCClient):
     def left(self, channel):
         self.factory.deferMessage('Left channel {}.'.format(channel))
     
-class IRCBotFactory(ClientFactory):
+class IRCBotFactory(protocol.ClientFactory):
     def __init__(self, deferMessage, channel, watchword, nickname='MyTestBot'):
         self.deferMessage = deferMessage
         self.channel = channel
@@ -54,8 +58,8 @@ def parse_args():
     IRC bot that joins several channels and uses an event loop to 
         detect and print(incoming messages.
     
-    Todo: Alert user of any messages containing a specified keyword, 
-        and allow user to respond to those messages.
+    Todo: Figure out whether IRCBotFactory can be a singleton, and
+        whether or not that would be meaningful, helpful or good.
     
     """
     # Unpack returned tuple
@@ -69,8 +73,8 @@ def parse_args():
     if len(args) < 1:
         raise Exception('Please provide at least one channel name.')
     return args, options.hostname, options.watchword
-    
-class Monitor:
+
+class Monitor():
     """
     Class instances print incoming IRC messages to the console.
     Incoming messages are printed by the event loop.
@@ -81,8 +85,9 @@ class Monitor:
         for channel in channels:
             reactor.connectTCP(hostname, 6667, IRCBotFactory(self.deferMessage, channel, watchword))
             self.deferMessage('Twisted: Reactor listening on channel {}'.format(channel))
-        reactor.run()
         
+        reactor.run()
+    
     def deferMessage(self, message):
         self.reactor.callWhenRunning(self._printMessage, message)
 
@@ -90,6 +95,9 @@ class Monitor:
         print(message)
 
 if __name__ == '__main__':
+    # If this module is the main program
+    #   the Python interpreter assigns the value __main__
+    #   to the __name__ variable.
     hostname = None
     channels, hostname, watchword = parse_args()
     
