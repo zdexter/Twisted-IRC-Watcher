@@ -5,22 +5,16 @@ from twisted.words.protocols.irc import IRCClient
 from twisted.internet.defer import Deferred
 
 class IRCBot(IRCClient):
-    def __init__(self):
-        self.d = Deferred()
-    
-    def _printMessage(message):
-        print message
-    
     def _get_nickname(self):
         return self.factory.nickname
     nickname = property(_get_nickname)
     
     def signedOn(self):
         self.join(self.factory.channel)
-        print('{} signed on as {}'.format(self.nickname, self.factory.channel))
-    
+        self.factory.deferMessage('{} signed on as {}'.format(self.nickname, self.factory.channel))
+        
     def joined(self, channel):
-        print('{} joined channel {}.'.format(self.nickname, self.factory.channel))
+        self.factory.deferMessage('{} joined channel {}.'.format(self.nickname, self.factory.channel))
     
     def privmsg(self, user, channel, msg):
         watchwords = [
@@ -32,15 +26,16 @@ class IRCBot(IRCClient):
         if len(filter(lambda substring: (substring in watchwords), msg.split(' '))) > 0:
             # The above filter() adds a substring to
             #    the return list IFF the lambda function returns true.
-            print 'Saw the watchword!'
+            self.d.callback('Saw the watchword!')
         
-        print('[Message from {} in {}]: {}'.format(user, channel, msg))
+        self.factory.deferMessage('[Message from {} in {}]: {}'.format(user, channel, msg))
     
     def left(self, channel):
-        print('Left channel {}.'.format(channel))
+        self.factory.deferMessage('Left channel {}.'.format(channel))
     
 class IRCBotFactory(ClientFactory):
-    def __init__(self, channel, watchword, nickname='MyTestBot'):
+    def __init__(self, deferMessage, channel, watchword, nickname='MyTestBot'):
+        self.deferMessage = deferMessage
         self.channel = channel
         self.nickname = nickname
         self.watchword = watchword
@@ -48,19 +43,16 @@ class IRCBotFactory(ClientFactory):
     protocol = IRCBot
     
     def clientConnectionFailed(self, connector, reason):
-        print('IRC Client: Client connection failed because: {}'.format(reason))
+        self.deferMessage('IRC Client: Client connection failed because: {}'.format(reason))
         connector.connect()
     
     def clientConnectionLost(self, connector, reason):
-        print('IRC Client: Client connection lost because: {}'.format(reason))
+        self.deferMessage('IRC Client: Client connection lost because: {}'.format(reason))
 
 def parse_args():
     usage_text = """usage: %prog [IRC channels to join]
     IRC bot that joins several channels and uses an event loop to 
         detect and print(incoming messages.
-    
-    Todo: be more true to the claim that the event loop is async 
-        with respect to input and output by deferring prints.
     
     Todo: Alert user of any messages containing a specified keyword, 
         and allow user to respond to those messages.
@@ -80,15 +72,22 @@ def parse_args():
     
 class Monitor:
     """
-    Class instances print(incoming IRC messages to the console.
+    Class instances print incoming IRC messages to the console.
     Incoming messages are printed by the event loop.
     """
     def __init__(self, channels, hostname, watchword):
         from twisted.internet import reactor
+        self.reactor = reactor
         for channel in channels:
-            print('Twisted: Reactor listening on channel {}'.format(channel))
-            reactor.connectTCP(hostname, 6667, IRCBotFactory(channel, watchword))
+            reactor.connectTCP(hostname, 6667, IRCBotFactory(self.deferMessage, channel, watchword))
+            self.deferMessage('Twisted: Reactor listening on channel {}'.format(channel))
         reactor.run()
+        
+    def deferMessage(self, message):
+        self.reactor.callWhenRunning(self._printMessage, message)
+
+    def _printMessage(self, message):
+        print(message)
 
 if __name__ == '__main__':
     hostname = None
